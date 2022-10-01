@@ -310,6 +310,7 @@ namespace kaixo {
          * @return valid C++ identifier
          */
         static std::string filterName(std::string name) {
+            if (name.size() == 0) return "_";
             // Make sure string doesn't start with digit
             if (oneOf(name[0], "0123456789")) name = "_" + name;
             // If string is reserved word, add "_" at end
