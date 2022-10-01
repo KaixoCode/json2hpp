@@ -278,6 +278,7 @@ namespace kaixo {
             "double", "std::int64_t", "std::uint64_t", "std::string_view", "bool", "", "", "std::nullptr_t"
         };
 
+        // List of reserved words for C++
         constexpr static const char* reserved_words[]{
             "alignas", "alignof", "and", "and_eq", "asm", "atomic_cancel", "atomic_commit",
             "atomic_noexcept", "auto", "bitand", "bitor", "bool", "break", "case", "catch",
@@ -294,19 +295,31 @@ namespace kaixo {
             "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq",
         };
 
+        // List of valid identifier characters in C++
+        constexpr static auto valid_identifier_characters = 
+            "_0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        // List of characters that should be substituted with another character
+        constexpr static std::pair<char, char> substitute_character[]{
+            { '-', '_' }, { ' ', '_' },
+        };
+
         /**
          * Converts a json string to a valid C++ identifier.
          * @param name json string
          * @return valid C++ identifier
          */
         static std::string filterName(std::string name) {
+            // Make sure string doesn't start with digit
             if (oneOf(name[0], "0123456789")) name = "_" + name;
+            // If string is reserved word, add "_" at end
             for (auto& reserved : reserved_words)
                 if (name == reserved) return name + "_";
+            // Substitute any characters, and remove invalid ones
             for (auto i = name.begin(); i != name.end();) {
-                if (*i == '-') *i = '_';
-                if (*i == ' ') *i = '_';
-                if (!oneOf(*i, "_0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+                for (auto& s : substitute_character)
+                    if (*i == s.first) *i = s.second;
+                if (!oneOf(*i, valid_identifier_characters))
                     name.erase(i);
                 else ++i;
             }
