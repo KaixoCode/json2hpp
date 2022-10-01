@@ -296,7 +296,7 @@ namespace kaixo {
         };
 
         // List of valid identifier characters in C++
-        constexpr static auto valid_identifier_characters = 
+        constexpr static auto valid_identifier_characters =
             "_0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
         // List of characters that should be substituted with another character
@@ -376,13 +376,23 @@ namespace kaixo {
          */
         static std::string generate(const std::string& name, json data) {
             json2hpp converter;
-            if (data.is(Object)) converter.generate_object(name, data.as<json::object>());
-            else if (data.is(Array)) converter.generate_array(name, data.as<json::array>());
-
-            std::string result = "";
-            for (auto& elem : converter.objects) result = elem.to_string() + result;
-            return result + "constexpr " + filterName(converter.objects.front().type)
-                + " " + filterName(name) + " = " + generate_constructor(data) + ";\n";
+            if (data.is(Object)) {
+                converter.generate_object(name, data.as<json::object>());
+                std::string result = "";
+                for (auto& elem : converter.objects) result = elem.to_string() + result;
+                auto type = filterName(converter.objects.front().type);
+                return result + "constexpr " + type + " " + filterName(name)
+                    + " = " + generate_constructor(data) + ";\n";
+            }
+            else if (data.is(Array)) {
+                converter.generate_array(name, data.as<json::array>());
+                std::string result = "";
+                for (auto& elem : converter.objects) result = elem.to_string() + result;
+                auto type = filterName(converter.objects.front().type);
+                return result + "constexpr std::array<" + type + ", " + std::to_string(data.size()) + "> "
+                    + filterName(name) + " = " + generate_constructor(data) + ";\n";
+            }
+            return "";
         }
 
         /**
