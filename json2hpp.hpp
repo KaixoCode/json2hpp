@@ -86,7 +86,7 @@ namespace kaixo {
             if (_it == as<object>().end()) return as<object>()[std::string{ index }];
             else return _it->second;
         }
-        
+
         /**
          * Accessor for array. Becomes array if it's null. Throws if not array.
          * If index > size, it resizes the array.
@@ -149,7 +149,7 @@ namespace kaixo {
         }
 
         static std::optional<json> parseJsonBool(std::string_view& val) {
-            return consume(val, "true") ? true 
+            return consume(val, "true") ? true
                 : consume(val, "false") ? false : std::optional<json>{};
         }
 
@@ -160,7 +160,7 @@ namespace kaixo {
         static std::optional<json> parseJsonNumber(std::string_view& val) {
             std::string_view _json = val;
             std::size_t _size = 0ull;
-            bool _floating = false,  _signed = false;
+            bool _floating = false, _signed = false;
             auto _isDigit = [&] { return oneOf(_json.front(), "0123456789"); };
             auto _consume = [&] { return ++_size, !(_json = _json.substr(1)).empty(); };
             auto _consumeDigits = [&] {
@@ -171,17 +171,18 @@ namespace kaixo {
 
             if (_signed = _json.starts_with('-'))
                 if (!_consume()) return {};
- 
+
             if (_json.starts_with('0')) {      // when leading 0
                 if (!_consume()) return {}; // 
                 if (_isDigit()) return {};     // can't be followed by digit
-            } else if (!_consumeDigits()) return {};
- 
+            }
+            else if (!_consumeDigits()) return {};
+
             if (_floating = _json.starts_with('.')) {
                 if (!_consume()) return {};
                 if (!_consumeDigits()) return {};
             }
- 
+
             if (oneOf(_json.front(), "eE")) {
                 if (!_consume()) return {};
                 if (oneOf(_json.front(), "-+") && !_consume()) return {};
@@ -207,7 +208,8 @@ namespace kaixo {
                 if (_result[_offset + _index - 1] == '\\') {     // if escaped
                     _offset += _index + 1;                       //   add offset
                     _json = _result.substr(_offset);             //   remove suffix from search
-                } else {                                         // else not escaped
+                }
+                else {                                         // else not escaped
                     val = _result.substr(_offset + _index + 1);  //   remove from remainder
                     return removeDoubleEscapes(_result.substr(1, _offset + _index - 1));
                 }
@@ -276,6 +278,22 @@ namespace kaixo {
             "double", "std::int64_t", "std::uint64_t", "std::string_view", "bool", "", "", "std::nullptr_t"
         };
 
+        constexpr static const char* reserved_words[]{
+            "alignas", "alignof", "and", "and_eq", "asm", "atomic_cancel", "atomic_commit",
+            "atomic_noexcept", "auto", "bitand", "bitor", "bool", "break", "case", "catch",
+            "char", "char8_t", "char16_t", "char32_t", "class", "compl", "concept", "const",
+            "consteval", "constexpr", "constinit", "const_cast", "continue", "co_await",
+            "co_return", "co_yield", "decltype", "default", "delete", "do", "double",
+            "dynamic_cast", "else", "enum", "explicit", "export", "extern", "false", "float",
+            "for", "friend", "goto", "if", "inline", "int", "long", "mutable", "namespace",
+            "new", "noexcept", "not", "not_eq", "nullptr", "operator", "or", "or_eq", "private",
+            "protected", "public", "reflexpr", "register", "reinterpret_cast", "requires",
+            "return", "short", "signed", "sizeof", "static", "static_assert", "static_cast",
+            "struct", "switch", "synchronized", "template", "this", "thread_local", "throw",
+            "true", "try", "typedef", "typeid", "typename", "union", "unsigned", "using",
+            "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq",
+        };
+
         /**
          * Converts a json string to a valid C++ identifier.
          * @param name json string
@@ -283,8 +301,11 @@ namespace kaixo {
          */
         static std::string filterName(std::string name) {
             if (oneOf(name[0], "0123456789")) name = "_" + name;
+            for (auto& reserved : reserved_words)
+                if (name == reserved) return name + "_";
             for (auto i = name.begin(); i != name.end();) {
                 if (*i == '-') *i = '_';
+                if (*i == ' ') *i = '_';
                 if (!oneOf(*i, "_0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
                     name.erase(i);
                 else ++i;
@@ -447,6 +468,18 @@ namespace kaixo {
             return common_type;
         }
 
+        static bool combine_to_common_type(json& a, const json& b) {
+            int common_type = common[b.type()][a.type()];
+            switch (common_type) {
+            case Floating: a = json::floating{}; return true;
+            case Integral: a = json::integral{}; return true;
+            case Unsigned: a = json::unsigned_integral{}; return true;
+            case String: a = json::string{}; return true;
+            case Boolean: a = json::boolean{}; return true;
+            default: return false;
+            }
+        }
+
         /**
          * Combine the json fields of both json objects.
          * @param a first json object
@@ -455,27 +488,12 @@ namespace kaixo {
          */
         static bool combine_json_objects(json& a, const json& b) {
             if (b.type() == Null) return true;
-            if (b.type() != Object) {
-                if (b.type() == a.type() || a.type() == Null) {
-                    a = b;
-                    return true;
-                }
-
-                int common_type = common[b.type()][a.type()];
-                switch (common_type) {
-                case Floating: a = json::floating{}; return true;
-                case Integral: a = json::integral{}; return true;
-                case Unsigned: a = json::unsigned_integral{}; return true;
-                case String: a = json::string{}; return true;
-                case Boolean: a = json::boolean{}; return true;
-                default: return false;
-                }
-            }
+            if (b.type() != Object) return combine_to_common_type(a, b);
             auto& _obj = b.as<json::object>();
             for (auto& [key, value] : _obj) {
                 // No matching type, means not able to combine
                 if (a[key].type() != Null && a[key].type() != value.type())
-                    return false;
+                    return combine_to_common_type(a[key], value);
                 // Both an object, simply combine objects
                 if (a[key].type() == Object) {
                     if (!combine_json_objects(a[key], value)) return false;
