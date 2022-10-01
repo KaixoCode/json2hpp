@@ -377,20 +377,18 @@ namespace kaixo {
         static std::string generate(const std::string& name, json data) {
             json2hpp converter;
             if (data.is(Object)) {
-                converter.generate_object(name, data.as<json::object>());
+                auto& obj = converter.generate_object(name, data.as<json::object>());
                 std::string result = "";
                 for (auto& elem : converter.objects) result = elem.to_string() + result;
-                auto type = filterName(converter.objects.front().type);
-                return result + "constexpr " + type + " " + filterName(name)
+                return result + "constexpr " + obj.type + " " + filterName(name)
                     + " = " + generate_constructor(data) + ";\n";
             }
             else if (data.is(Array)) {
-                converter.generate_array(name, data.as<json::array>());
+                auto& obj = converter.generate_array(name, data.as<json::array>());
                 std::string result = "";
                 for (auto& elem : converter.objects) result = elem.to_string() + result;
-                auto type = filterName(converter.objects.front().type);
-                return result + "constexpr std::array<" + type + ", " + std::to_string(data.size()) + "> "
-                    + filterName(name) + " = " + generate_constructor(data) + ";\n";
+                return result + "constexpr " + obj.type + " " + filterName(name)
+                    + " = " + generate_constructor(data) + ";\n";
             }
             return "";
         }
